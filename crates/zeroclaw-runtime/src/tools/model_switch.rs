@@ -396,7 +396,7 @@ impl ModelSwitchTool {
             }
         };
 
-        zeroclaw_providers::catalog::refresh_minimax_text_choices(&mut models);
+        zeroclaw_providers::catalog::refresh_minimax_text_choices(&model_provider, &mut models);
 
         if models.is_empty() {
             return Ok(ToolResult {
