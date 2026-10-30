@@ -577,9 +577,10 @@ endpoint = "intl"                            # variants: cn, intl
 ```
 
 The direct MiniMax fallback catalog recommends `MiniMax-M3.1-Flash` first, then
-`MiniMax-M3`. Discovered MiniMax text choices use the same pair; gateway IDs and
-returned `:free` routes are preserved without adding unavailable routes. Existing
-saved or explicitly entered model IDs remain valid configuration choices.
+`MiniMax-M3`. Discovered MiniMax text choices put the same pair first when they
+are returned, while retaining every other catalog ID, including gateway and
+`:free` routes. Existing saved or explicitly entered model IDs remain valid
+configuration choices.
 
 For MiniMax's Anthropic-compatible API, use `[providers.models.anthropic.minimax]` with `uri = "https://api.minimax.io/anthropic"` (Global) or `uri = "https://api.minimaxi.com/anthropic"` (China) instead.
 

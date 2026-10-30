@@ -271,28 +271,10 @@ fn current_minimax_text_rank(provider: &str, model: &str) -> Option<usize> {
         .position(|id| underlying.eq_ignore_ascii_case(id))
 }
 
-/// Refresh discovered MiniMax text choices without rewriting IDs or adding routes.
+/// Prefer current MiniMax text choices without rewriting or removing returned IDs.
 /// Bare IDs are interpreted only for MiniMax/OpenCode, preserving custom catalogs.
-pub fn refresh_minimax_text_choices(provider: &str, models: &mut Vec<String>) {
-    models.retain(|model| {
-        minimax_text_slug(provider, model).is_none()
-            || current_minimax_text_rank(provider, model).is_some()
-    });
-    let mut current: Vec<String> = models
-        .iter()
-        .filter(|model| current_minimax_text_rank(provider, model).is_some())
-        .cloned()
-        .collect();
-    current.sort_by_key(|model| current_minimax_text_rank(provider, model));
-    let mut current = current.into_iter();
-    // Keep other vendors in their existing slots while preferring Flash over M3.
-    for model in models.iter_mut() {
-        if current_minimax_text_rank(provider, model).is_some()
-            && let Some(preferred) = current.next()
-        {
-            *model = preferred;
-        }
-    }
+pub fn refresh_minimax_text_choices(provider: &str, models: &mut [String]) {
+    models.sort_by_key(|model| current_minimax_text_rank(provider, model).unwrap_or(usize::MAX));
 }
 
 #[must_use]
@@ -700,7 +682,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn minimax_gateway_catalog_filters_through_configured_http_provider() {
+    async fn minimax_gateway_catalog_prefers_current_models_without_filtering() {
         let app = axum::Router::new().route(
             "/models",
             axum::routing::get(|| async {
@@ -734,6 +716,7 @@ mod tests {
             vec![
                 "minimax/minimax-m3.1-flash:free",
                 "minimax/minimax-m3",
+                "minimax/minimax-m2.7",
                 "openai/gpt-5",
             ]
         );
@@ -750,7 +733,7 @@ mod tests {
     }
 
     #[test]
-    fn minimax_chat_choices_prefer_flash_and_remove_legacy_variants() {
+    fn minimax_chat_choices_prefer_flash_and_retain_other_text_variants() {
         let models = [
             "MiniMax-M2.7",
             "MiniMax-M3",
@@ -765,13 +748,27 @@ mod tests {
         ];
         assert_eq!(
             sort_model_catalog_for_chat("minimax", models.map(String::from).to_vec()).unwrap(),
-            vec!["MiniMax-M3.1-Flash", "MiniMax-M3"]
+            vec![
+                "MiniMax-M3.1-Flash",
+                "MiniMax-M3",
+                "abab6.5s-chat",
+                "MiniMax-M1",
+                "MiniMax-M2.7",
+                "MiniMax-M2.7-highspeed",
+                "MiniMax-M3-preview",
+                "MiniMax-Text-01",
+                "MiniMax-VL-01",
+                "minimax/minimax-01",
+            ]
         );
-        assert!(sort_model_catalog_for_chat("minimax", vec!["MiniMax-M2.7".into()]).is_none());
+        assert_eq!(
+            sort_model_catalog_for_chat("minimax", vec!["MiniMax-M2.7".into()]).unwrap(),
+            vec!["MiniMax-M2.7"]
+        );
     }
 
     #[test]
-    fn opencode_free_route_is_ranked_before_m3_and_legacy_free_is_removed() {
+    fn opencode_free_route_is_ranked_before_m3_and_legacy_free_is_retained() {
         let models = vec![
             "opencode/minimax-m3".into(),
             "opencode/minimax-m2.1-free".into(),
@@ -785,6 +782,7 @@ mod tests {
             vec![
                 "opencode/minimax-m3.1-flash-free",
                 "opencode/minimax-m3",
+                "opencode/minimax-m2.1-free",
                 "custom/minimax-m2.1-free",
                 "custom/model",
             ]
@@ -811,14 +809,16 @@ mod tests {
         assert_eq!(
             models,
             vec![
-                "openai/gpt-5",
                 "minimax/minimax-m3.1-flash:free",
-                "minimax/speech-2.8-hd",
                 "minimax/minimax-m3",
+                "openai/gpt-5",
+                "minimax/minimax-m2.7:free",
+                "minimax/speech-2.8-hd",
                 "minimax/video-01",
                 "minimax-music3",
                 "minimax-embedding-01",
                 "custom/model",
+                "minimax/minimax-m3-preview",
             ]
         );
         // A catalog with only M3 must not gain an unadvertised Flash route.
