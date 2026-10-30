@@ -299,7 +299,7 @@ pub fn sort_model_catalog_for_chat(provider: &str, models: Vec<String>) -> Optio
             .then_with(|| a.1.cmp(&b.1))
             .then_with(|| a.2.cmp(&b.2))
     });
-    let mut models = ranked.into_iter().map(|(_, _, model)| model).collect();
+    let mut models: Vec<String> = ranked.into_iter().map(|(_, _, model)| model).collect();
     refresh_minimax_text_choices(provider, &mut models);
     if models.is_empty() {
         None
